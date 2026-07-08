@@ -10,6 +10,69 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
 
 app.use(express.json());
 
+// ------------------ الصفحة الرئيسية ------------------
+app.get('/', (req, res) => {
+  res.json({
+    message: '🚀 مرحباً بك في Users API',
+    status: 'الخادم شغال بنجاح',
+    help: 'زور /help للحصول على شرح كامل لكل الروابط المتوفرة'
+  });
+});
+
+// ------------------ صفحة المساعدة ------------------
+app.get('/help', (req, res) => {
+  res.json({
+    title: 'دليل استخدام Users API',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/api/register/:username/:password/:email',
+        description: 'تسجيل مستخدم جديد عن طريق رابط واحد',
+        example: '/api/register/ahmed/123456/ahmed@example.com'
+      },
+      {
+        method: 'GET',
+        path: '/api/login/:email/:password',
+        description: 'تسجيل الدخول عن طريق رابط واحد، يرجع token',
+        example: '/api/login/ahmed@example.com/123456'
+      },
+      {
+        method: 'POST',
+        path: '/api/register',
+        description: 'تسجيل مستخدم جديد (الطريقة الآمنة عبر JSON body)',
+        body: { name: 'string', email: 'string', password: 'string' }
+      },
+      {
+        method: 'POST',
+        path: '/api/login',
+        description: 'تسجيل دخول (الطريقة الآمنة عبر JSON body)، يرجع token',
+        body: { email: 'string', password: 'string' }
+      },
+      {
+        method: 'GET',
+        path: '/api/users',
+        description: 'عرض كل المستخدمين (يتطلب توكن بالـ Header: Authorization: Bearer TOKEN)'
+      },
+      {
+        method: 'GET',
+        path: '/api/users/:id',
+        description: 'عرض مستخدم واحد (يتطلب توكن)'
+      },
+      {
+        method: 'PUT',
+        path: '/api/users/:id',
+        description: 'تعديل بيانات مستخدم (يتطلب توكن)',
+        body: { name: 'string (اختياري)', email: 'string (اختياري)' }
+      },
+      {
+        method: 'DELETE',
+        path: '/api/users/:id',
+        description: 'حذف مستخدم (يتطلب توكن)'
+      }
+    ]
+  });
+});
+
 // ------------------ Middleware للتحقق من التوكن ------------------
 function authMiddleware(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -202,6 +265,14 @@ app.delete('/api/users/:id', authMiddleware, (req, res) => {
   writeDB(data);
 
   res.json({ message: 'تم حذف المستخدم بنجاح' });
+});
+
+// ------------------ أي رابط غير موجود ------------------
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'هذا الرابط غير موجود',
+    tip: 'زور /help عشان تشوف كل الروابط المتوفرة'
+  });
 });
 
 // ------------------ تشغيل السيرفر ------------------
