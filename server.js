@@ -94,36 +94,40 @@ function authMiddleware(req, res, next) {
 // ------------------ تسجيل مستخدم جديد (عن طريق رابط واحد بالترتيب) ------------------
 // مثال: /api/register/ahmed/123456/ahmed@example.com
 app.get('/api/register/:username/:password/:email', (req, res) => {
-  const { username, password, email } = req.params;
+  try {
+    const { username, password, email } = req.params;
 
-  if (!username || !password || !email) {
-    return res.status(400).json({ error: 'اسم المستخدم وكلمة المرور والإيميل مطلوبين' });
+    if (!username || !password || !email) {
+      return res.status(400).json({ error: 'اسم المستخدم وكلمة المرور والإيميل مطلوبين' });
+    }
+
+    const data = readDB();
+
+    const existing = data.users.find(u => u.email === email);
+    if (existing) {
+      return res.status(409).json({ error: 'هذا الإيميل مستخدم من قبل' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const newUser = {
+      id: data.nextId,
+      name: username,
+      email,
+      password: hashedPassword,
+      created_at: new Date().toISOString()
+    };
+
+    data.users.push(newUser);
+    data.nextId += 1;
+    writeDB(data);
+
+    res.status(201).json({
+      message: 'تم إنشاء الحساب بنجاح',
+      user: { id: newUser.id, name: newUser.name, email: newUser.email }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'حدث خطأ', details: err.message });
   }
-
-  const data = readDB();
-
-  const existing = data.users.find(u => u.email === email);
-  if (existing) {
-    return res.status(409).json({ error: 'هذا الإيميل مستخدم من قبل' });
-  }
-
-  const hashedPassword = bcrypt.hashSync(password, 10);
-  const newUser = {
-    id: data.nextId,
-    name: username,
-    email,
-    password: hashedPassword,
-    created_at: new Date().toISOString()
-  };
-
-  data.users.push(newUser);
-  data.nextId += 1;
-  writeDB(data);
-
-  res.status(201).json({
-    message: 'تم إنشاء الحساب بنجاح',
-    user: { id: newUser.id, name: newUser.name, email: newUser.email }
-  });
 });
 
 // ------------------ تسجيل مستخدم جديد (Register) ------------------
