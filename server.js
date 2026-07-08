@@ -26,14 +26,26 @@ app.get('/help', (req, res) => {
     endpoints: [
       {
         method: 'GET',
+        path: '/api/register?username=X&password=Y&email=Z',
+        description: 'تسجيل مستخدم جديد بأسماء واضحة بالرابط (الأسهل)',
+        example: '/api/register?username=ahmed&password=123456&email=ahmed@example.com'
+      },
+      {
+        method: 'GET',
+        path: '/api/login?email=X&password=Y',
+        description: 'تسجيل الدخول بأسماء واضحة بالرابط، يرجع token',
+        example: '/api/login?email=ahmed@example.com&password=123456'
+      },
+      {
+        method: 'GET',
         path: '/api/register/:username/:password/:email',
-        description: 'تسجيل مستخدم جديد عن طريق رابط واحد',
+        description: 'تسجيل مستخدم جديد عن طريق رابط واحد بالترتيب',
         example: '/api/register/ahmed/123456/ahmed@example.com'
       },
       {
         method: 'GET',
         path: '/api/login/:email/:password',
-        description: 'تسجيل الدخول عن طريق رابط واحد، يرجع token',
+        description: 'تسجيل الدخول عن طريق رابط واحد بالترتيب، يرجع token',
         example: '/api/login/ahmed@example.com/123456'
       },
       {
@@ -90,6 +102,48 @@ function authMiddleware(req, res, next) {
     return res.status(401).json({ error: 'توكن غير صالح أو منتهي' });
   }
 }
+
+// ------------------ تسجيل مستخدم جديد (عن طريق أسماء واضحة بالرابط) ------------------
+// مثال: /api/register?username=ahmed&password=123456&email=ahmed@example.com
+app.get('/api/register', (req, res) => {
+  try {
+    const { username, password, email } = req.query;
+
+    if (!username || !password || !email) {
+      return res.status(400).json({
+        error: 'اسم المستخدم وكلمة المرور والإيميل مطلوبين',
+        example: '/api/register?username=ahmed&password=123456&email=ahmed@example.com'
+      });
+    }
+
+    const data = readDB();
+
+    const existing = data.users.find(u => u.email === email);
+    if (existing) {
+      return res.status(409).json({ error: 'هذا الإيميل مستخدم من قبل' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+    const newUser = {
+      id: data.nextId,
+      name: username,
+      email,
+      password: hashedPassword,
+      created_at: new Date().toISOString()
+    };
+
+    data.users.push(newUser);
+    data.nextId += 1;
+    writeDB(data);
+
+    res.status(201).json({
+      message: 'تم إنشاء الحساب بنجاح',
+      user: { id: newUser.id, name: newUser.name, email: newUser.email }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'حدث خطأ', details: err.message });
+  }
+});
 
 // ------------------ تسجيل مستخدم جديد (عن طريق رابط واحد بالترتيب) ------------------
 // مثال: /api/register/ahmed/123456/ahmed@example.com
@@ -162,6 +216,43 @@ app.post('/api/register', (req, res) => {
     message: 'تم إنشاء الحساب بنجاح',
     user: { id: newUser.id, name: newUser.name, email: newUser.email }
   });
+});
+
+// ------------------ تسجيل الدخول (عن طريق أسماء واضحة بالرابط) ------------------
+// مثال: /api/login?email=ahmed@example.com&password=123456
+app.get('/api/login', (req, res) => {
+  try {
+    const { email, password } = req.query;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'الإيميل وكلمة المرور مطلوبان',
+        example: '/api/login?email=ahmed@example.com&password=123456'
+      });
+    }
+
+    const data = readDB();
+    const user = data.users.find(u => u.email === email);
+
+    if (!user) {
+      return res.status(401).json({ error: 'الإيميل أو كلمة المرور غير صحيحة' });
+    }
+
+    const passwordMatch = bcrypt.compareSync(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'الإيميل أو كلمة المرور غير صحيحة' });
+    }
+
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+
+    res.json({
+      message: 'تم تسجيل الدخول بنجاح',
+      token,
+      user: { id: user.id, name: user.name, email: user.email }
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'حدث خطأ', details: err.message });
+  }
 });
 
 // ------------------ تسجيل الدخول (عن طريق رابط واحد بالترتيب) ------------------
