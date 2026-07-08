@@ -26,6 +26,12 @@ app.get('/help', (req, res) => {
     endpoints: [
       {
         method: 'GET',
+        path: '/api/save-name/:username',
+        description: 'حفظ اسم مستخدم فقط بدون باسورد أو إيميل (الأبسط)',
+        example: '/api/save-name/ahmed'
+      },
+      {
+        method: 'GET',
         path: '/api/register?username=X&password=Y&email=Z',
         description: 'تسجيل مستخدم جديد بأسماء واضحة بالرابط (الأسهل)',
         example: '/api/register?username=ahmed&password=123456&email=ahmed@example.com'
@@ -102,6 +108,37 @@ function authMiddleware(req, res, next) {
     return res.status(401).json({ error: 'توكن غير صالح أو منتهي' });
   }
 }
+
+// ------------------ حفظ اسم مستخدم بس (بدون باسورد أو إيميل) ------------------
+// مثال: /api/save-name/ahmed
+app.get('/api/save-name/:username', (req, res) => {
+  try {
+    const { username } = req.params;
+
+    if (!username) {
+      return res.status(400).json({ error: 'اسم المستخدم مطلوب' });
+    }
+
+    const data = readDB();
+
+    const newUser = {
+      id: data.nextId,
+      name: username,
+      created_at: new Date().toISOString()
+    };
+
+    data.users.push(newUser);
+    data.nextId += 1;
+    writeDB(data);
+
+    res.status(201).json({
+      message: 'تم حفظ الاسم بنجاح',
+      user: newUser
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'حدث خطأ', details: err.message });
+  }
+});
 
 // ------------------ تسجيل مستخدم جديد (عن طريق أسماء واضحة بالرابط) ------------------
 // مثال: /api/register?username=ahmed&password=123456&email=ahmed@example.com
